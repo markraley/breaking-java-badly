@@ -33,3 +33,9 @@ params are
 output
 
 png is generated with decorated name with 'png' added as prefix and suffix
+
+# major dependencies
+1. OpenJDK 1.8 (tested)
+2. matplotlib
+3. python3
+

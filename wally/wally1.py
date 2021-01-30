@@ -53,6 +53,17 @@ class GC(namedtuple('GC', gc_param_str)):
 	# paused, boolean
 
 #
+# FGC_Chain tuple
+#
+
+fgc_chain_param_str = (
+		'first_fgc_tuple last_fgc_tuple pause_time duration_time'
+	)
+
+class FGC_Chain(namedtuple('FGC_Chain', fgc_chain_param_str)):
+	pass
+
+#
 # testGCAdjacency()
 #
 
@@ -298,16 +309,11 @@ def main():
 				chain_duration_time = (last_fgc_tuple.duration
 									+ last_fgc_tuple.start_time
 									- chain_start_tuple.start_time)
-				pause_per = 100.0 * (chain_pause_time
-										/ chain_duration_time)
-				chain_arr.append(
-					[chain_start_tuple,
-						last_fgc_tuple,
-						pause_per])
-				if (True):
-					print ('chain', chain_count, pause_per)
-					print ('\t', chain_start_tuple)
-					print ('\t', last_fgc_tuple)
+				chain_arr.append(FGC_Chain(
+									chain_start_tuple,
+									last_fgc_tuple,
+									chain_pause_time,
+									chain_duration_time))
 				chain_started = False
 				chain_count, chain_pause_time = 0, 0.0
 				chain_start_tuple = None
@@ -322,13 +328,11 @@ def main():
 		chain_duration_time = (last_fgc_tuple.duration
 							+ last_fgc_tuple.start_time
 							- chain_start_tuple.start_time)
-		pause_per = 100.0 * (chain_pause_time / chain_duration_time)
-		chain_arr.append([chain_start_tuple,
-							last_fgc_tuple, pause_per])
-		if (True):
-			print ('chain', chain_count, pause_per)
-			print ('\t', chain_start_tuple)
-			print ('\t', last_fgc_tuple)
+		chain_arr.append(FGC_Chain(
+							chain_start_tuple,
+							last_fgc_tuple,
+							chain_pause_time,
+							chain_duration_time))
 
 	f.close()
 
@@ -374,19 +378,25 @@ def main():
 	#
 
 	for c in chain_arr:
-		t1 = c[0] # first fgc of chain
-		t2 = c[1] # last fgc of chain
+		first_fgc = c.first_fgc_tuple # first fgc of chain
+		last_fgc = c.last_fgc_tuple # last fgc of chain
+		pause_per = 100.0 * (c.pause_time / c.duration_time)
+
+		print('chain', '{:.1f}%'.format(pause_per),
+						'{:.1f} seconds'.format(c.duration_time),
+						first_fgc.timestamp,
+						last_fgc.timestamp)
+
 		rect = matplotlib.patches.Rectangle(
-								(t1.start_time,0),
-								t2.start_time -
-									t1.start_time,
-				 				c[2] * .75, # scale rect height
+								(first_fgc.start_time,0),
+								c.duration_time,
+				 				pause_per * .75, # scale rect height
 								linewidth=1,edgecolor='r',
 								facecolor='none',hatch='//'
 							)
 		ax.add_patch(rect)
 		height = rect.get_height()
-		ax.annotate('{:.1f}%'.format(c[2]),
+		ax.annotate('{:.1f}%'.format(pause_per),
 					xy=(rect.get_x() + rect.get_width() / 2, height),
 					xytext=(0, 3),  # 3 points vertical offset
 					textcoords="offset points",

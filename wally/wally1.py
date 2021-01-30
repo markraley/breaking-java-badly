@@ -339,6 +339,7 @@ def main():
 
 	matplotlib.use('Agg')
 	import pylab
+	import ntpath
 
 	fig,ax = pylab.subplots(1)
 
@@ -391,7 +392,7 @@ def main():
 					textcoords="offset points",
 					ha='center', va='bottom', size=8)
 
-	pylab.savefig('png_' + args.file_source + '.png', dpi=120)
+	pylab.savefig('png_' + ntpath.basename(args.file_source) + '.png', dpi=120)
 
 if __name__ == '__main__':
 	main()

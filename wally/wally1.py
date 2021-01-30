@@ -36,7 +36,7 @@ from collections import namedtuple
 #
 
 gc_param_str = (
-					'start_time duration ' # retain trailing spaces
+					'start_time duration_time ' # retain trailing spaces
 					'tenured_start_kb tenured_end_kb '
 					'perm_start_kb perm_end_kb timestamp paused'
 				)
@@ -44,7 +44,7 @@ gc_param_str = (
 class GC(namedtuple('GC', gc_param_str)):
 	pass
 	# start_time - seconds from server start
-	# duration - seconds
+	# duration_time - seconds
 	# tenured_start_kb - int, optional
 	# tenured_end_kb - int, optional
 	# perm_start_kb - int, optional
@@ -69,10 +69,10 @@ class FGC_Chain(namedtuple('FGC_Chain', fgc_chain_param_str)):
 
 def testGCAdjacency(last_fgc_tuple, cur_fgc_tuple, pause_ratio_threshold):
 	last_start_sec = last_fgc_tuple.start_time
-	last_end_sec = last_fgc_tuple.start_time + last_fgc_tuple.duration
+	last_end_sec = last_fgc_tuple.start_time + last_fgc_tuple.duration_time
 
 	cur_start_sec = cur_fgc_tuple.start_time
-	cur_end_sec = cur_fgc_tuple.start_time + cur_fgc_tuple.duration
+	cur_end_sec = cur_fgc_tuple.start_time + cur_fgc_tuple.duration_time
 	diff_time = cur_start_sec - last_end_sec
 
 	# zero small time discrepencies if present
@@ -81,15 +81,15 @@ def testGCAdjacency(last_fgc_tuple, cur_fgc_tuple, pause_ratio_threshold):
 		diff_time = 0.0
 
 	pause_ratio = (
-					cur_fgc_tuple.duration
-					/ (diff_time + cur_fgc_tuple.duration)
+					cur_fgc_tuple.duration_time
+					/ (diff_time + cur_fgc_tuple.duration_time)
 				)
 
 	if (False):	# debug output
 		print('diff_time',
 				round(diff_time,2),
 				"{0:.2f}".format(pause_ratio*100.0),
-				cur_fgc_tuple.duration)
+				cur_fgc_tuple.duration_time)
 
 	if (pause_ratio >= pause_ratio_threshold):
 		return True
@@ -233,7 +233,8 @@ def main():
 	p.add_argument("file_source")	# input log file
 	p.add_argument("-t", default="")	# title
 	p.add_argument("-st", default="")	# sub title (lower left)
-	p.add_argument("-pause_ratio", default=.65)
+	p.add_argument("-fpr", default=.65)
+	p.add_argument("-mpr", default=0.0)
 
 	# params that are used to calculate the max tenured space
 	p.add_argument("-Xmx", default="2g")
@@ -246,7 +247,7 @@ def main():
 	nr = parseNum(args.NewRatio)
 	max_tenured_space_kb = int(xmx * (nr / (nr + 1.0)) / 1024)
 
-	pause_ratio = float(args.pause_ratio)
+	pause_ratio = float(args.fpr)
 
 	print('xmx', xmx, 'max_tenured_space_kb', max_tenured_space_kb)
 
@@ -265,6 +266,13 @@ def main():
 	title_str = args.t
 	subtitle_str = args.st
 
+	minor_gc_time = 0.0
+	minor_pause_ratio = float(args.mpr)
+	if (minor_pause_ratio > 0.0):
+		use_minor_gcs = True
+	else:
+		use_minor_gcs = False
+
 	#
 	# scan the provided log file line by line looking for and tracking
 	# temporally adjacent fgc entries
@@ -274,58 +282,82 @@ def main():
 		fgc_tuple = parseLegacyGC(line)
 
 		# reject unrecognized or unpaused (minor) GCs
-		if (fgc_tuple is None or not fgc_tuple.paused):
+		if (fgc_tuple is None):
 			continue
 
-		time_arr.append(fgc_tuple.start_time)
-		tenured_start_arr.append(fgc_tuple.tenured_start_kb
-								/ max_tenured_space_kb * 100.0)
-		tenured_end_arr.append(fgc_tuple.tenured_end_kb
-								/ max_tenured_space_kb * 100.0)
-
-		if (not first_found):
-			first_found = True
-			last_fgc_tuple = fgc_tuple
-			continue
-
-		cur_fgc_tuple = fgc_tuple
-
-		adjacent = testGCAdjacency(last_fgc_tuple,
-									cur_fgc_tuple,
-									pause_ratio)
-
-		if (adjacent):
-			if (not chain_started):
-				chain_started = True
-				chain_count = 2
-				chain_pause_time = (cur_fgc_tuple.duration
-									+ last_fgc_tuple.duration)
-				chain_start_tuple = last_fgc_tuple
-			else:
-				chain_count += 1
-				chain_pause_time += cur_fgc_tuple.duration
+		if(not fgc_tuple.paused):
+			if (use_minor_gcs):
+				minor_gc_time += fgc_tuple.duration_time
 		else:
-			if (chain_started):
-				chain_duration_time = (last_fgc_tuple.duration
-									+ last_fgc_tuple.start_time
-									- chain_start_tuple.start_time)
-				chain_arr.append(FGC_Chain(
-									chain_start_tuple,
-									last_fgc_tuple,
-									chain_pause_time,
-									chain_duration_time))
-				chain_started = False
-				chain_count, chain_pause_time = 0, 0.0
-				chain_start_tuple = None
+			time_arr.append(fgc_tuple.start_time)
+			tenured_start_arr.append(fgc_tuple.tenured_start_kb
+									/ max_tenured_space_kb * 100.0)
+			tenured_end_arr.append(fgc_tuple.tenured_end_kb
+									/ max_tenured_space_kb * 100.0)
 
-		last_fgc_tuple = cur_fgc_tuple
+			if (not first_found):
+				first_found = True
+				last_fgc_tuple = fgc_tuple
+				minor_gc_time = 0.0
+				continue
+
+			cur_fgc_tuple = fgc_tuple
+
+			adjacent = testGCAdjacency(last_fgc_tuple,
+										cur_fgc_tuple,
+										pause_ratio)
+
+			fgc_gap_time = (cur_fgc_tuple.start_time
+								-(last_fgc_tuple.start_time
+									+ last_fgc_tuple.duration_time)
+							)
+
+			if (adjacent
+					or (use_minor_gcs
+							and
+						(minor_gc_time / fgc_gap_time)
+												>= minor_pause_ratio)
+				):
+				if (not chain_started):
+					chain_started = True
+					chain_count = 2
+					chain_pause_time = (cur_fgc_tuple.duration_time
+										+ last_fgc_tuple.duration_time
+										+ minor_gc_time)
+					chain_start_tuple = last_fgc_tuple
+				else:
+					chain_count += 1
+					chain_pause_time += (cur_fgc_tuple.duration_time
+											+ minor_gc_time)
+			else:
+				if (minor_gc_time > 0.0):
+					print('minor_gc_time',
+							last_fgc_tuple.start_time,
+							minor_gc_time,
+							fgc_gap_time)
+
+				if (chain_started):
+					chain_duration_time = (last_fgc_tuple.duration_time
+										+ last_fgc_tuple.start_time
+										- chain_start_tuple.start_time)
+					chain_arr.append(FGC_Chain(
+										chain_start_tuple,
+										last_fgc_tuple,
+										chain_pause_time,
+										chain_duration_time))
+					chain_started = False
+					chain_count, chain_pause_time = 0, 0.0
+					chain_start_tuple = None
+
+			last_fgc_tuple = cur_fgc_tuple
+			minor_gc_time = 0.0
 
 	#
 	# process last open chain if any
 	#
 
 	if (chain_started):
-		chain_duration_time = (last_fgc_tuple.duration
+		chain_duration_time = (last_fgc_tuple.duration_time
 							+ last_fgc_tuple.start_time
 							- chain_start_tuple.start_time)
 		chain_arr.append(FGC_Chain(

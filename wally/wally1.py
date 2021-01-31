@@ -233,8 +233,8 @@ def main():
 	p.add_argument("file_source")	# input log file
 	p.add_argument("-t", default="")	# title
 	p.add_argument("-st", default="")	# sub title (lower left)
-	p.add_argument("-fpr", default=.65)
-	p.add_argument("-mpr", default=0.0)
+	p.add_argument("-fpr", default=.65) # full pause ratio
+	p.add_argument("-mbr", default=0.0) # minor bridge ratio
 
 	# params that are used to calculate the max tenured space
 	p.add_argument("-Xmx", default="2g")
@@ -248,6 +248,11 @@ def main():
 	max_tenured_space_kb = int(xmx * (nr / (nr + 1.0)) / 1024)
 
 	pause_ratio = float(args.fpr)
+	minor_pause_ratio = float(args.mbr)
+	if (minor_pause_ratio > 0.0):
+		use_minor_gcs = True
+	else:
+		use_minor_gcs = False
 
 	print('xmx', xmx, 'max_tenured_space_kb', max_tenured_space_kb)
 
@@ -267,11 +272,6 @@ def main():
 	subtitle_str = args.st
 
 	minor_gc_time = 0.0
-	minor_pause_ratio = float(args.mpr)
-	if (minor_pause_ratio > 0.0):
-		use_minor_gcs = True
-	else:
-		use_minor_gcs = False
 
 	#
 	# scan the provided log file line by line looking for and tracking

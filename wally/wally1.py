@@ -2,6 +2,7 @@ import re
 import argparse
 import time
 import matplotlib
+import ntpath
 
 # pre-compile commonly used regex expressions
 
@@ -235,11 +236,16 @@ def main():
     p.add_argument("-st", default="")   # sub title (lower left)
     p.add_argument("-fpr", default=.65) # full pause ratio
     p.add_argument("-mbr", default=0.0) # minor bridge ratio
+    p.add_argument("-o", default="")    # specify output file
 
     # params that are used to calculate the max tenured space
     p.add_argument("-Xmx", default="2g")
     p.add_argument("-NewRatio", default="2")
     args = p.parse_args()
+
+    ofile_str = args.o
+    if (len(ofile_str) == 0):
+        ofile_str = 'png_' + ntpath.basename(args.file_source) + '.png'
 
     # calculate the max tenured space (generation) available to the JVM
 
@@ -375,7 +381,6 @@ def main():
 
     matplotlib.use('Agg')
     import pylab
-    import ntpath
 
     fig,ax = pylab.subplots(1)
 
@@ -434,8 +439,7 @@ def main():
                     textcoords="offset points",
                     ha='center', va='bottom', size=8)
 
-    pylab.savefig('png_' + ntpath.basename(args.file_source) + '.png',
-        dpi=120)
+    pylab.savefig(ofile_str, dpi=120)
 
 if __name__ == '__main__':
     main()

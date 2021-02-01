@@ -439,9 +439,9 @@ def main():
     for c in chain_arr:
         first_fgc = c.first_fgc_tuple # first fgc of chain
         last_fgc = c.last_fgc_tuple # last fgc of chain
-        pause_per = 100.0 * (c.chain_pause_time / c.duration_time)
+        pause_per = 100.0 * ((c.chain_pause_time + c.chain_minor_time)
+                                    / c.duration_time)
 
-        print(c)
         print('chain', '{:.1f}%'.format(pause_per),
                         '{:.1f} seconds'.format(c.duration_time),
                         first_fgc.timestamp,

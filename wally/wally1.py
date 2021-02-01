@@ -293,12 +293,12 @@ def main():
     for line in f:
         fgc_tuple = parseLegacyGC(line)
 
-        # reject unrecognized or unpaused (minor) GCs
+        # reject unrecognized GC lines
         if (fgc_tuple is None):
             continue
 
         if(not fgc_tuple.paused):
-            if (use_minor_gcs):
+            if (use_minor_gcs): # collect minor gc data if enabled
                 bridge_mgc_time += fgc_tuple.duration_time
                 bridge_mgc_count += 1
         else:

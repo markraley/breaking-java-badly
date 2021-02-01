@@ -58,7 +58,8 @@ class GC(namedtuple('GC', gc_param_str)):
 #
 
 fgc_chain_param_str = (
-        'first_fgc_tuple last_fgc_tuple pause_time duration_time'
+        'first_fgc_tuple last_fgc_tuple pause_time duration_time '
+        'full_gc_count minor_gc_count'
     )
 
 class FGC_Chain(namedtuple('FGC_Chain', fgc_chain_param_str)):
@@ -243,6 +244,7 @@ def main():
     p.add_argument("-NewRatio", default="2")
     args = p.parse_args()
 
+    # resolve output file name for matplotlib png, use -o if defined
     ofile_str = args.o
     if (len(ofile_str) == 0):
         ofile_str = 'png_' + ntpath.basename(args.file_source) + '.png'
@@ -277,7 +279,11 @@ def main():
     title_str = args.t
     subtitle_str = args.st
 
-    minor_gc_time = 0.0
+    # counts and measures minor GCs between full GCs
+    bridge_mgc_count, bridge_mgc_time = 0, 0.0
+
+    # if enabled, accumulates any minor GCs that form bridges
+    chain_minor_count, chain_minor_time = 0, 0.0
 
     #
     # scan the provided log file line by line looking for and tracking
@@ -293,8 +299,10 @@ def main():
 
         if(not fgc_tuple.paused):
             if (use_minor_gcs):
-                minor_gc_time += fgc_tuple.duration_time
+                bridge_mgc_time += fgc_tuple.duration_time
+                bridge_mgc_count += 1
         else:
+            # process the fgc found
             time_arr.append(fgc_tuple.start_time)
             tenured_start_arr.append(fgc_tuple.tenured_start_kb
                                     / max_tenured_space_kb * 100.0)
@@ -304,7 +312,7 @@ def main():
             if (not first_found):
                 first_found = True
                 last_fgc_tuple = fgc_tuple
-                minor_gc_time = 0.0
+                bridge_mgc_count, bridge_mgc_time = 0, 0.0
                 continue
 
             cur_fgc_tuple = fgc_tuple
@@ -317,31 +325,38 @@ def main():
                                 -(last_fgc_tuple.start_time
                                     + last_fgc_tuple.duration_time)
                             )
-
-            if (adjacent
-                    or (use_minor_gcs
-                            and
-                        (minor_gc_time / fgc_gap_time)
+            bridged_adjacent = (bridge_mgc_count > 0
+                            and (bridge_mgc_time / fgc_gap_time)
                                                 >= minor_pause_ratio)
-                ):
+
+            # check for adjacency between fgcs, either normal or bridged
+            if (adjacent):
                 if (not chain_started):
                     chain_started = True
                     chain_count = 2
                     chain_pause_time = (cur_fgc_tuple.duration_time
-                                        + last_fgc_tuple.duration_time
-                                        + minor_gc_time)
+                                        + last_fgc_tuple.duration_time)
                     chain_start_tuple = last_fgc_tuple
                 else:
                     chain_count += 1
-                    chain_pause_time += (cur_fgc_tuple.duration_time
-                                            + minor_gc_time)
-            else:
-                if (minor_gc_time > 0.0):
-                    print('minor_gc_time',
-                            last_fgc_tuple.start_time,
-                            minor_gc_time,
-                            fgc_gap_time)
+                    chain_pause_time += (cur_fgc_tuple.duration_time)
+            elif (bridged_adjacent):
+                if (not chain_started):
+                    chain_started = True
+                    chain_count = 2
+                    chain_pause_time = (cur_fgc_tuple.duration_time
+                                        + last_fgc_tuple.duration_time)
+                    chain_start_tuple = last_fgc_tuple
 
+                    chain_minor_count = bridge_mgc_count
+                    chain_minor_time = bridge_mgc_time
+                else:
+                    chain_count += 1
+                    chain_pause_time += (cur_fgc_tuple.duration_time)
+
+                    chain_minor_time += bridge_mgc_time
+                    chain_minor_count += bridge_mgc_count
+            else:
                 if (chain_started):
                     chain_duration_time = (last_fgc_tuple.duration_time
                                         + last_fgc_tuple.start_time
@@ -349,14 +364,16 @@ def main():
                     chain_arr.append(FGC_Chain(
                                         chain_start_tuple,
                                         last_fgc_tuple,
-                                        chain_pause_time,
-                                        chain_duration_time))
+                                        chain_pause_time + chain_minor_time,
+                                        chain_duration_time,
+                                        chain_count,
+                                        chain_minor_count))
                     chain_started = False
                     chain_count, chain_pause_time = 0, 0.0
                     chain_start_tuple = None
 
             last_fgc_tuple = cur_fgc_tuple
-            minor_gc_time = 0.0
+            bridge_mgc_count, bridge_mgc_time = 0, 0.0
 
     #
     # process last open chain if any
@@ -369,8 +386,10 @@ def main():
         chain_arr.append(FGC_Chain(
                             chain_start_tuple,
                             last_fgc_tuple,
-                            chain_pause_time,
-                            chain_duration_time))
+                            chain_pause_time + chain_minor_time,
+                            chain_duration_time,
+                            chain_count,
+                            chain_minor_count))
 
     f.close()
 
@@ -419,6 +438,7 @@ def main():
         last_fgc = c.last_fgc_tuple # last fgc of chain
         pause_per = 100.0 * (c.pause_time / c.duration_time)
 
+        print(c)
         print('chain', '{:.1f}%'.format(pause_per),
                         '{:.1f} seconds'.format(c.duration_time),
                         first_fgc.timestamp,

@@ -37,7 +37,7 @@ from collections import namedtuple
 #
 
 gc_param_str = (
-                    'start_time duration_time ' # retain trailing spaces
+                    'start_time duration_time ' # retain trailing space
                     'tenured_start_kb tenured_end_kb '
                     'perm_start_kb perm_end_kb timestamp paused'
                 )
@@ -58,7 +58,9 @@ class GC(namedtuple('GC', gc_param_str)):
 #
 
 fgc_chain_param_str = (
-        'first_fgc_tuple last_fgc_tuple pause_time duration_time '
+        'first_fgc_tuple last_fgc_tuple '       #retain trailing space
+        'chain_pause_time chain_minor_time '
+        'duration_time '
         'full_gc_count minor_gc_count'
     )
 
@@ -357,6 +359,8 @@ def main():
                     chain_minor_time += bridge_mgc_time
                     chain_minor_count += bridge_mgc_count
             else:
+                # chain break found
+                # chain is chain_start_tuple <--> last_fgc_tuple inclusive
                 if (chain_started):
                     chain_duration_time = (last_fgc_tuple.duration_time
                                         + last_fgc_tuple.start_time
@@ -364,7 +368,8 @@ def main():
                     chain_arr.append(FGC_Chain(
                                         chain_start_tuple,
                                         last_fgc_tuple,
-                                        chain_pause_time + chain_minor_time,
+                                        chain_pause_time,
+                                        chain_minor_time,
                                         chain_duration_time,
                                         chain_count,
                                         chain_minor_count))
@@ -383,13 +388,11 @@ def main():
         chain_duration_time = (last_fgc_tuple.duration_time
                             + last_fgc_tuple.start_time
                             - chain_start_tuple.start_time)
-        chain_arr.append(FGC_Chain(
-                            chain_start_tuple,
-                            last_fgc_tuple,
-                            chain_pause_time + chain_minor_time,
+        chain_arr.append(
+                FGC_Chain(chain_start_tuple, last_fgc_tuple,
+                            chain_pause_time, chain_minor_time,
                             chain_duration_time,
-                            chain_count,
-                            chain_minor_count))
+                            chain_count, chain_minor_count))
 
     f.close()
 
@@ -436,7 +439,7 @@ def main():
     for c in chain_arr:
         first_fgc = c.first_fgc_tuple # first fgc of chain
         last_fgc = c.last_fgc_tuple # last fgc of chain
-        pause_per = 100.0 * (c.pause_time / c.duration_time)
+        pause_per = 100.0 * (c.chain_pause_time / c.duration_time)
 
         print(c)
         print('chain', '{:.1f}%'.format(pause_per),

@@ -98,7 +98,7 @@ public class PCF04 {
           // notify the consumer
           notify();
 
-          if (counter > 8*1024*1024)  {
+          if (counter > 8 * Million)  {
             double elapsed_min = (System.currentTimeMillis() - start_time)/(1000.0*60.0);
 
             counter = 0;
@@ -127,12 +127,12 @@ public class PCF04 {
           if (value >= num_count) {
             Arrays.sort(metrics_arr);
             pf("%d\n", value);
-            System.out.println("elapsed time: " + (System.currentTimeMillis() - start_time)/1000.0);
-            System.out.println("median queue size observed:"
-              + metrics_arr[metrics_size/2]);
+            pf("elapsed time: %f\n",
+                (System.currentTimeMillis() - start_time)/1000.0);
+            pf("MQD:", metrics_arr[metrics_size/2]);
 
             for (int i = 0; i < metrics_size; i++)
-              System.out.println(metrics_arr[i]);
+              pf("\t%d\n", metrics_arr[i]);
 
             System.exit(0);
           }

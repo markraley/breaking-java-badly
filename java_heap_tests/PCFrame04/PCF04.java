@@ -133,7 +133,7 @@ public class PCF04 {
             for (int i = 0; i < metrics_size; i++)
               pf("\t%.3f %d\n", time_arr[i] / 1000.0, metrics_arr[i]);
 
-            pf("total_elapsed_seconds: %f\n",
+            pf("total_elapsed_seconds: %.3f\n",
                 (System.currentTimeMillis() - start_time) / 1000.0);
 
             run_complete = true;

@@ -1,7 +1,6 @@
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 // import static java.lang.System.out;
 
@@ -58,9 +57,8 @@ public class PCF04 {
     Thread consumerThread = new ConsumerThread(buffer, num_count);
     consumerThread.start();
     producerThread.start();
-    consumerThread.join();
-    producerThread.join();
-
+    consumerThread.join(); // consumer controls exit conditions
+    pf("run complete\n");
     System.exit(0);
   }
 
@@ -125,16 +123,13 @@ public class PCF04 {
           counter++;
 
           if (value >= num_count) {
-            Arrays.sort(metrics_arr);
-            pf("%d\n", value);
             pf("elapsed time: %f\n",
                 (System.currentTimeMillis() - start_time)/1000.0);
-            pf("MQD:", metrics_arr[metrics_size/2]);
 
             for (int i = 0; i < metrics_size; i++)
               pf("\t%d\n", metrics_arr[i]);
 
-            System.exit(0);
+            break;
           }
           notify();
         }

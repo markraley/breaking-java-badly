@@ -57,16 +57,20 @@ public class PCF04 {
     Thread consumerThread = new ConsumerThread(buffer, num_count);
     consumerThread.start();
     producerThread.start();
-    consumerThread.join(); // consumer controls exit conditions
+    consumerThread.join();
+    producerThread.join();
+
     pf("run complete\n");
-    System.exit(0);
   }
 
   static class Buffer {
+
+    private Boolean run_complete = false;
     private Queue<Integer> list;
 
     private int[] metrics_arr;
     private int metrics_size;
+    private double[] time_arr;
 
     private int capacity;
 
@@ -74,6 +78,7 @@ public class PCF04 {
       this.list = new LinkedList<>();
       this.capacity = capacity;
     }
+
     public void produce(int num_count) throws InterruptedException {
       double start_time = System.currentTimeMillis();
       int value = 0;
@@ -81,8 +86,9 @@ public class PCF04 {
       int index = 0;
       metrics_size = Math.round(num_count / (8 * Million));
       metrics_arr = new int[metrics_size];
+      time_arr = new double[metrics_size];
 
-      while (true) {
+      while (!run_complete) {
         synchronized (this) {
           while (list.size() >= capacity) {
             // wait for the consumer
@@ -97,13 +103,14 @@ public class PCF04 {
           notify();
 
           if (counter > 8 * Million)  {
-            double elapsed_min = (System.currentTimeMillis() - start_time)/(1000.0*60.0);
+            double elapsed_time = System.currentTimeMillis() - start_time;
 
             counter = 0;
-            if (index >= 0 && index < metrics_size)
-              metrics_arr[index++] = list.size();
+            if (index >= 0 && index < metrics_size) {
+              metrics_arr[index] = list.size();
+              time_arr[index++] = elapsed_time;
+            }
           }
-
         }
       }
     }
@@ -112,7 +119,7 @@ public class PCF04 {
       double start_time = System.currentTimeMillis();
       int value = 0;
       int counter = 0;
-      while (true) {
+      while (!run_complete) {
         synchronized (this) {
           while (list.size() == 0) {
             // wait for the producer
@@ -123,13 +130,13 @@ public class PCF04 {
           counter++;
 
           if (value >= num_count) {
-            pf("elapsed time: %f\n",
-                (System.currentTimeMillis() - start_time)/1000.0);
-
             for (int i = 0; i < metrics_size; i++)
-              pf("\t%d\n", metrics_arr[i]);
+              pf("\t%.3f %d\n", time_arr[i] / 1000.0, metrics_arr[i]);
 
-            break;
+            pf("total_elapsed_seconds: %f\n",
+                (System.currentTimeMillis() - start_time) / 1000.0);
+
+            run_complete = true;
           }
           notify();
         }

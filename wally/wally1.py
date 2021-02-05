@@ -444,6 +444,7 @@ def main():
         pause_per = 100.0 * ((c.chain_pause_time + c.chain_minor_time)
                                     / c.duration_time)
 
+        print(c)
         print('chain', '{:.1f}%'.format(pause_per),
                         '{:.1f} seconds'.format(c.duration_time),
                         first_fgc.timestamp,

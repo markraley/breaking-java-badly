@@ -240,6 +240,7 @@ def main():
     p.add_argument("-fpr", default=.65) # full pause ratio
     p.add_argument("-mbr", default=0.0) # minor bridge ratio
     p.add_argument("-o", default="")    # specify output file
+    p.add_argument("-c", default=3)    # minimum full gcs in a chain
 
     # params that are used to calculate the max tenured space
     p.add_argument("-Xmx", default="2g")
@@ -257,6 +258,7 @@ def main():
     nr = parseNum(args.NewRatio)
     max_tenured_space_kb = int(xmx * (nr / (nr + 1.0)) / 1024)
 
+    minimum_chain_count = int(args.c)
     pause_ratio = float(args.fpr)
     minor_pause_ratio = float(args.mbr)
     if (minor_pause_ratio > 0.0):
@@ -361,7 +363,7 @@ def main():
             else:
                 # chain break found
                 # chain is chain_start_tuple <--> last_fgc_tuple inclusive
-                if (chain_started):
+                if (chain_started and chain_count >= minimum_chain_count):
                     chain_duration_time = (last_fgc_tuple.duration_time
                                         + last_fgc_tuple.start_time
                                         - chain_start_tuple.start_time)
@@ -384,7 +386,7 @@ def main():
     # process last open chain if any
     #
 
-    if (chain_started):
+    if (chain_started and chain_count >= minimum_chain_count):
         chain_duration_time = (last_fgc_tuple.duration_time
                             + last_fgc_tuple.start_time
                             - chain_start_tuple.start_time)

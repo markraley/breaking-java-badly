@@ -14,7 +14,7 @@ fullgc_re = re.compile("^ \[Full GC")
 minorgc_re = re.compile("^ \[GC")
 
 #
-# wally1 by Mark Raley
+# wally1.py by Mark Raley
 #
 # some basic terms -
 #   fgc - full garbage collection

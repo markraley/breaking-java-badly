@@ -1,1 +1,0 @@
-Articles posted to linkedin.

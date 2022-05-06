@@ -6,12 +6,12 @@ import ntpath
 
 # pre-compile commonly used regex expressions
 
-tengen_re = re.compile("ParOldGen: ([0-9]+)K->([0-9]+)K")
-permgen_re = re.compile("Metaspace: ([0-9]+)K->([0-9]+)K")
-datetime_re = re.compile("^([-0-9T\:]+)\.([0-9]+)([-\+][0-9]+)\:")
-reltime_re = re.compile("^ ?([0-9\.]+)\:")
-fullgc_re = re.compile("^ \[Full GC")
-minorgc_re = re.compile("^ \[GC")
+tengen_re = re.compile(r"ParOldGen: ([0-9]+)K->([0-9]+)K")
+permgen_re = re.compile(r"Metaspace: ([0-9]+)K->([0-9]+)K")
+datetime_re = re.compile(r"^([-0-9T\:]+)\.([0-9]+)([-\+][0-9]+)\:")
+reltime_re = re.compile(r"^ ?([0-9\.]+)\:")
+fullgc_re = re.compile(r"^ \[Full GC")
+minorgc_re = re.compile(r"^ \[GC")
 
 #
 # wally1.py by Mark Raley

@@ -1,0 +1,18 @@
+target language python 1-1 vp_gc "./wally/vp_gc" py
+
+
+pod Header
+    varint version
+    string tag
+
+pod GC
+    varint start_time_ms
+    varint duration_ms
+    varint tenured_start_kb
+    varint tenured_end_kb
+    varint perm_start_kb
+    varint perm_end_kb
+    varint paused
+
+pod LogContents
+    vector GC entries

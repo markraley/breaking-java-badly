@@ -24,3 +24,50 @@ hs_err_pid*
 
 # sublime
 *sublime-*
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+deps/
+build/
+__pycache__/
+*.o
+*.amf?
+*.sublime-project
+*.sublime-workspace
+notes.txt
+*.python
+*.javascript
+*.cplusplus
+node_modules/
+package-lock.json

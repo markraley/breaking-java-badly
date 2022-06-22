@@ -11,7 +11,7 @@ class Header():
 
 class GC:
     def __init__(self):
-        self.start_time_ms = -1
+        self.start_ms = -1
         self.duration_ms = 0
         self.tenured_start_kb = -1
         self.tenured_end_kb = -1

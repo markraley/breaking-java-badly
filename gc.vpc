@@ -6,7 +6,7 @@ pod Header
     string tag
 
 pod GC
-    varint start_time_ms
+    varint start_ms
     varint duration_ms
     varint tenured_start_kb
     varint tenured_end_kb

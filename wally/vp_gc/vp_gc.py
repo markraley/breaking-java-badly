@@ -26,7 +26,7 @@ def write_Header(ctx, payload):
 	write_str(ctx, payload.tag)
 
 def write_GC(ctx, payload):
-	write_int(ctx, payload.start_time_ms)
+	write_int(ctx, payload.start_ms)
 	write_int(ctx, payload.duration_ms)
 	write_int(ctx, payload.tenured_start_kb)
 	write_int(ctx, payload.tenured_end_kb)
@@ -60,7 +60,7 @@ def read_Header(ctx):
 
 def read_GC(ctx):
 	payload = GC()
-	payload.start_time_ms = read_int(ctx)
+	payload.start_ms = read_int(ctx)
 	payload.duration_ms = read_int(ctx)
 	payload.tenured_start_kb = read_int(ctx)
 	payload.tenured_end_kb = read_int(ctx)

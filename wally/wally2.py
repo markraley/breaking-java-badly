@@ -41,16 +41,15 @@ from collections import namedtuple
 #
 
 gc_param_str = (
-                    'start_ms duration_ms '
-                    'start_time duration_time ' # retain trailing space
+                    'start_ms duration_ms ' # retain trailing space
                     'tenured_start_kb tenured_end_kb '
                     'perm_start_kb perm_end_kb timestamp paused'
                 )
 
 class GC(namedtuple('GC', gc_param_str)):
     pass
-    # start_time - seconds from server start
-    # duration_time - seconds
+    # start_ms - milliseconds from server start
+    # duration_ms - milliseconds
     # tenured_start_kb - int, optional
     # tenured_end_kb - int, optional
     # perm_start_kb - int, optional
@@ -65,7 +64,7 @@ class GC(namedtuple('GC', gc_param_str)):
 fgc_chain_param_str = (
         'first_fgc_tuple last_fgc_tuple '       #retain trailing space
         'chain_pause_time chain_minor_time '
-        'duration_time '
+        'duration_secs '
         'full_gc_count minor_gc_count'
     )
 
@@ -77,28 +76,28 @@ class FGC_Chain(namedtuple('FGC_Chain', fgc_chain_param_str)):
 #
 
 def testGCAdjacency(last_fgc_tuple, cur_fgc_tuple, pause_ratio_threshold):
-    last_start_sec = last_fgc_tuple.start_time
-    last_end_sec = last_fgc_tuple.start_time + last_fgc_tuple.duration_time
+    last_start_ms = last_fgc_tuple.start_ms
+    last_end_ms = last_fgc_tuple.start_ms + last_fgc_tuple.duration_ms
 
-    cur_start_sec = cur_fgc_tuple.start_time
-    cur_end_sec = cur_fgc_tuple.start_time + cur_fgc_tuple.duration_time
-    diff_time = cur_start_sec - last_end_sec
+    cur_start_ms = cur_fgc_tuple.start_ms
+    cur_end_ms = cur_fgc_tuple.start_ms + cur_fgc_tuple.duration_ms
+    diff_ms = cur_start_ms - last_end_ms
 
     # zero small time discrepencies if present
-    if (diff_time < 0.0):
-        assert(abs(diff_time) < 0.1)
-        diff_time = 0.0
+    if (diff_ms < 0):
+        assert(abs(diff_ms) < 100)
+        diff_ms = 0
 
     pause_ratio = (
-                    cur_fgc_tuple.duration_time
-                    / (diff_time + cur_fgc_tuple.duration_time)
+                    cur_fgc_tuple.duration_ms
+                    / (diff_ms + cur_fgc_tuple.duration_ms)
                 )
 
-    if (False): # debug output
-        print('diff_time',
-                round(diff_time,2),
-                "{0:.2f}".format(pause_ratio*100.0),
-                cur_fgc_tuple.duration_time)
+#    if (False): # debug output
+#        print('diff_time',
+#                round(diff_time,2),
+#                "{0:.2f}".format(pause_ratio*100.0),
+#                cur_fgc_tuple.duration_time)
 
     if (pause_ratio >= pause_ratio_threshold):
         return True
@@ -185,8 +184,6 @@ def parseLegacyGC(line_str):
         return GC(
                     int(float(rel_time_str) * 1000.0),
                     int(float(real_str) * 1000.0),
-                    float(rel_time_str),
-                    float(real_str),
                     int(start_kb),
                     int(end_kb),
                     int(perm_start_kb),
@@ -292,10 +289,10 @@ def main():
     subtitle_str = args.st
 
     # counts and measures minor GCs between full GCs
-    bridge_mgc_count, bridge_mgc_time = 0, 0.0
+    bridge_mgc_count, bridge_mgc_ms = 0, 0
 
     # if enabled, accumulates any minor GCs that form bridges
-    chain_minor_count, chain_minor_time = 0, 0.0
+    chain_minor_count, chain_minor_ms = 0, 0
 
     #
     # scan the provided log file line by line looking for and tracking
@@ -314,11 +311,11 @@ def main():
 
         if(not fgc_tuple.paused):
             if (use_minor_gcs): # collect minor gc data if enabled
-                bridge_mgc_time += fgc_tuple.duration_time
+                bridge_mgc_ms += fgc_tuple.duration_ms
                 bridge_mgc_count += 1
         else:
             # process the fgc found
-            time_arr.append(fgc_tuple.start_time)
+            time_arr.append(fgc_tuple.start_ms / 1000.0)
             tenured_start_arr.append(fgc_tuple.tenured_start_kb
                                     / max_tenured_space_kb * 100.0)
             tenured_end_arr.append(fgc_tuple.tenured_end_kb
@@ -327,7 +324,7 @@ def main():
             if (not first_found):
                 first_found = True
                 last_fgc_tuple = fgc_tuple
-                bridge_mgc_count, bridge_mgc_time = 0, 0.0
+                bridge_mgc_count, bridge_mgc_ms = 0, 0
                 continue
 
             cur_fgc_tuple = fgc_tuple
@@ -336,12 +333,12 @@ def main():
                                         cur_fgc_tuple,
                                         pause_ratio)
 
-            fgc_gap_time = (cur_fgc_tuple.start_time
-                                -(last_fgc_tuple.start_time
-                                    + last_fgc_tuple.duration_time)
+            fgc_gap_ms = (cur_fgc_tuple.start_ms
+                                -(last_fgc_tuple.start_ms
+                                    + last_fgc_tuple.duration_ms)
                             )
             bridged_adjacent = (bridge_mgc_count > 0
-                            and (bridge_mgc_time / fgc_gap_time)
+                            and (bridge_mgc_ms / fgc_gap_ms)
                                                 >= minor_pause_ratio)
 
             # check for adjacency between fgcs, either normal or bridged
@@ -364,26 +361,26 @@ def main():
                     chain_start_tuple = last_fgc_tuple
 
                     chain_minor_count = bridge_mgc_count
-                    chain_minor_time = bridge_mgc_time
+                    chain_minor_ms = bridge_mgc_ms
                 else:
                     chain_count += 1
                     chain_pause_ms += cur_fgc_tuple.duration_ms
 
-                    chain_minor_time += bridge_mgc_time
+                    chain_minor_ms += bridge_mgc_ms
                     chain_minor_count += bridge_mgc_count
             else:
                 # chain break found
                 # chain is chain_start_tuple <--> last_fgc_tuple inclusive
                 if (chain_started and chain_count >= minimum_chain_count):
-                    chain_duration_time = (last_fgc_tuple.duration_time
-                                        + last_fgc_tuple.start_time
-                                        - chain_start_tuple.start_time)
+                    chain_duration_ms = (last_fgc_tuple.duration_ms
+                                        + last_fgc_tuple.start_ms
+                                        - chain_start_tuple.start_ms)
                     chain_arr.append(FGC_Chain(
                                         chain_start_tuple,
                                         last_fgc_tuple,
                                         chain_pause_ms / 1000.0,
-                                        chain_minor_time,
-                                        chain_duration_time,
+                                        chain_minor_ms / 1000.0,
+                                        chain_duration_ms / 1000.0,
                                         chain_count,
                                         chain_minor_count))
                     chain_started = False
@@ -391,20 +388,21 @@ def main():
                     chain_start_tuple = None
 
             last_fgc_tuple = cur_fgc_tuple
-            bridge_mgc_count, bridge_mgc_time = 0, 0.0
+            bridge_mgc_count, bridge_mgc_ms = 0, 0
 
     #
     # process last open chain if any
     #
 
     if (chain_started and chain_count >= minimum_chain_count):
-        chain_duration_time = (last_fgc_tuple.duration_time
-                            + last_fgc_tuple.start_time
-                            - chain_start_tuple.start_time)
+        chain_duration_ms = (last_fgc_tuple.duration_ms
+                            + last_fgc_tuple.start_ms
+                            - chain_start_tuple.start_ms)
         chain_arr.append(
                 FGC_Chain(chain_start_tuple, last_fgc_tuple,
-                            chain_pause_ms / 1000.0, chain_minor_time,
-                            chain_duration_time,
+                            chain_pause_ms / 1000.0,
+                            chain_minor_ms / 1000.0,
+                            chain_duration_ms / 1000.0,
                             chain_count, chain_minor_count))
 
     f.close()
@@ -453,15 +451,15 @@ def main():
         first_fgc = c.first_fgc_tuple # first fgc of chain
         last_fgc = c.last_fgc_tuple # last fgc of chain
         pause_per = 100.0 * ((c.chain_pause_time + c.chain_minor_time)
-                                    / c.duration_time)
+                                    / c.duration_secs)
         print('chain', '{:.1f}%'.format(pause_per),
-                        '{:.1f} seconds'.format(c.duration_time),
+                        '{:.1f} seconds'.format(c.duration_secs),
                         first_fgc.timestamp,
                         last_fgc.timestamp)
 
         rect = matplotlib.patches.Rectangle(
-                                (first_fgc.start_time,0),
-                                c.duration_time,
+                                (first_fgc.start_ms / 1000.0,0),
+                                c.duration_secs,
                                 pause_per * .75, # scale rect height
                                 linewidth=1,edgecolor='r',
                                 facecolor='none',hatch='//'
